@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Admin - Mini Digital Signage</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo-area">
+        <span class="icon">📱</span>
+        <div>
+          <h1>Painel de Controle</h1>
+          <p class="subtitle">Mini Digital Signage MVP</p>
+        </div>
+      </div>
+      <div id="player-status-badge" class="status-badge status-offline">
+        <span class="status-dot"></span>
+        <span id="player-status-text">PLAYER OFFLINE</span>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <!-- Section: Active Media Screen -->
+      <section class="card active-media-card">
+        <h2>Exibindo Agora no iPad</h2>
+        <div id="active-media-preview" class="active-media-preview">
+          <p class="no-active-text">Nenhuma mídia ativa selecionada</p>
+        </div>
+        <div class="active-media-details">
+          <span id="active-media-title" class="title">Nenhum</span>
+          <span id="active-media-type" class="badge">N/A</span>
+        </div>
+      </section>
+
+      <!-- Section: Add New Media -->
+      <section class="card form-card">
+        <h2>Cadastrar Nova Mídia</h2>
+        <form id="add-media-form">
+          <div class="form-group">
+            <label for="media-name">Nome da Mídia</label>
+            <input type="text" id="media-name" placeholder="Ex: Imagem do Menu, Vídeo Institucional" required>
+          </div>
+          <div class="form-group">
+            <label for="media-type">Tipo</label>
+            <select id="media-type" required>
+              <option value="image">Imagem</option>
+              <option value="video">Vídeo (MP4/H.264)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="media-url">URL Pública</label>
+            <input type="url" id="media-url" placeholder="https://exemplo.com/imagem.jpg" required>
+          </div>
+          <button type="submit" class="btn btn-secondary">Cadastrar Mídia</button>
+        </form>
+      </section>
+
+      <!-- Section: Media Library -->
+      <section class="card library-card">
+        <h2>Biblioteca de Mídias</h2>
+        <div id="media-library" class="media-grid">
+          <!-- Dynamically populated -->
+          <div class="loading-state">Carregando biblioteca...</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Sticky Bottom Control Panel for Selection -->
+    <div id="action-bar" class="action-bar hidden">
+      <div class="action-bar-content">
+        <div class="selected-info">
+          <span class="label">Selecionado:</span>
+          <span id="selected-media-name" class="name">Nenhum</span>
+        </div>
+        <button id="btn-display-now" class="btn btn-primary">EXIBIR NO IPAD</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

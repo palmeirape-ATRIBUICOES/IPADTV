@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Player - Mini Digital Signage</title>
+  
+  <!-- PWA & iOS Specific Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mini Signage">
+  <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+  <link rel="manifest" href="../manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#000000">
+
+  <!-- Typography -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="player.css">
+</head>
+<body>
+  <div id="player-container">
+    <!-- Image element -->
+    <img id="signage-image" src="" alt="Sinalização Digital" style="display: none;">
+    
+    <!-- Video element (highly compatible configuration) -->
+    <video id="signage-video" src="" loop muted playsinline autoplay style="display: none;"></video>
+    
+    <!-- Autoplay Fallback Overlay -->
+    <div id="play-overlay" class="overlay" style="display: none;">
+      <div class="overlay-button">
+        <span class="icon">▶</span>
+        <span class="text">TOQUE PARA INICIAR</span>
+      </div>
+    </div>
+
+    <!-- Diagnostic Debug Box -->
+    <div id="debug-box" class="debug-panel" style="display: none;">
+      <div class="debug-header">Sinalização - Diagnóstico</div>
+      <div class="debug-row"><span>Status:</span> <strong id="debug-status" class="online-tag">ONLINE</strong></div>
+      <div class="debug-row"><span>Sincronização:</span> <span id="debug-sync">-</span></div>
+      <div class="debug-row"><span>Tipo:</span> <span id="debug-type">-</span></div>
+      <div class="debug-row"><span>Media ID:</span> <span id="debug-id">-</span></div>
+      <div class="debug-row"><span>Versão:</span> <span id="debug-version">-</span></div>
+    </div>
+  </div>
+
+  <script src="player.js"></script>
+</body>
+</html>

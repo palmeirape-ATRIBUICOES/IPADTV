@@ -1,0 +1,21 @@
+{
+  "name": "mini-digital-signage",
+  "version": "1.0.0",
+  "description": "MVP de sinalização digital remota para iPad Mini 3",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "ipad",
+    "signage",
+    "pwa",
+    "digital-signage"
+  ],
+  "author": "Antigravity",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
