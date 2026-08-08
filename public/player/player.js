@@ -250,9 +250,9 @@
 
   // Renders the weather forecast dashboard
   function renderWeatherWidget(url) {
-    var coords = url ? url.split(',') : ['-8.5307', '-36.4357'];
-    var lat = coords[0] || '-8.5307';
-    var lon = coords[1] || '-36.4357';
+    var coords = url ? url.split(',') : ['-22.9068', '-43.1729'];
+    var lat = coords[0] || '-22.9068';
+    var lon = coords[1] || '-43.1729';
     
     fetch('/api/widgets/weather?lat=' + lat + '&lon=' + lon)
       .then(function(res) { return res.json(); })
@@ -262,7 +262,8 @@
         var cw = data.current_weather;
         var info = getWeatherInfo(cw.weathercode);
         
-        weatherCityEl.textContent = "Palmeira, PE";
+        // Dynamically bind city name from currentActiveMedia name
+        weatherCityEl.textContent = (currentActiveMedia && currentActiveMedia.name) ? currentActiveMedia.name : "Rio de Janeiro, RJ";
         weatherIconEl.textContent = info.icon;
         weatherTempEl.textContent = Math.round(cw.temperature) + '°C';
         weatherDescEl.textContent = info.desc;
@@ -353,6 +354,20 @@
     }, 300);
   }
 
+  // Requests browser fullscreen to hide system clock, battery bar, and other UI layers
+  function enterFullscreen() {
+    var el = document.documentElement;
+    if (el.webkitRequestFullscreen) {
+      el.webkitRequestFullscreen();
+    } else if (el.requestFullscreen) {
+      el.requestFullscreen();
+    } else if (el.webkitRequestFullScreen) {
+      el.webkitRequestFullScreen();
+    } else if (el.msRequestFullscreen) {
+      el.msRequestFullscreen();
+    }
+  }
+
   // Clear canvas
   function clearDisplay() {
     hideAllMediaElements();
@@ -364,10 +379,13 @@
     previousMediaType = null;
   }
 
-  // Handle overlay click to bypass autoplay restrictions & wake lock iPad screen
+  // Handle overlay click to bypass autoplay restrictions & wake lock iPad screen & trigger Fullscreen
   function handleOverlayClick() {
     hasUserInteracted = true;
     overlayEl.style.display = 'none';
+
+    // Trigger full screen mode to hide iPad battery & clock status bar
+    enterFullscreen();
 
     // Start background sleep preventer video
     sleepPreventerEl.src = sleepLockVideoBase64;

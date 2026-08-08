@@ -22,10 +22,12 @@ const btnStartPlaylist = document.getElementById('btn-start-playlist');
 const btnStopPlaylist = document.getElementById('btn-stop-playlist');
 const playlistStatusMsg = document.getElementById('playlist-status-msg');
 
-// New configuration elements for UI polish
+// Dynamic configuration elements
 const mediaTypeSelect = document.getElementById('media-type');
 const mediaUrlInput = document.getElementById('media-url');
 const mediaUrlLabel = document.querySelector('label[for="media-url"]');
+const mediaFileGroup = document.getElementById('media-file-group');
+const mediaFileInput = document.getElementById('media-file');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -48,28 +50,40 @@ document.addEventListener('DOMContentLoaded', () => {
   // Switch labels and placeholders dynamically based on media type selected
   mediaTypeSelect.addEventListener('change', () => {
     const val = mediaTypeSelect.value;
+    
+    // Default URL fields to not required since user can choose a file instead
+    mediaUrlInput.required = false;
+
     if (val === 'image') {
-      mediaUrlLabel.textContent = 'URL Pública da Imagem';
+      mediaUrlLabel.textContent = 'URL Pública da Imagem (ou envie arquivo)';
       mediaUrlInput.placeholder = 'https://exemplo.com/imagem.jpg';
-      mediaUrlInput.required = true;
+      mediaFileGroup.style.display = 'block';
     } else if (val === 'video') {
-      mediaUrlLabel.textContent = 'URL Pública do Vídeo (MP4)';
+      mediaUrlLabel.textContent = 'URL Pública do Vídeo MP4 (ou envie arquivo)';
       mediaUrlInput.placeholder = 'https://exemplo.com/video.mp4';
-      mediaUrlInput.required = true;
+      mediaFileGroup.style.display = 'block';
     } else if (val === 'weather') {
       mediaUrlLabel.textContent = 'Coordenadas (Lat,Lon) - Opcional';
-      mediaUrlInput.placeholder = 'Ex: -8.5307,-36.4357 (Vazio para Palmeira, PE)';
-      mediaUrlInput.required = false;
+      mediaUrlInput.placeholder = 'Ex: -22.9068,-43.1729 (Vazio para Centro, RJ)';
+      mediaFileGroup.style.display = 'none';
+      mediaFileInput.value = '';
     } else if (val === 'news') {
       mediaUrlLabel.textContent = 'URL do Feed RSS de Esporte';
-      mediaUrlInput.placeholder = 'Ex: https://ge.globo.com/servico/sem-patrocinio/rss/cogumelo/rss2.xml';
-      mediaUrlInput.required = true;
+      mediaUrlInput.placeholder = 'Ex: https://g1.globo.com/dinamico/recipiente/g1/rio-de-janeiro/rss2.xml';
+      mediaUrlInput.required = true; // RSS requires a URL feed
+      mediaFileGroup.style.display = 'none';
+      mediaFileInput.value = '';
     } else if (val === 'instagram') {
       mediaUrlLabel.textContent = 'URL do Widget Iframe (LightWidget)';
       mediaUrlInput.placeholder = 'Ex: https://lightwidget.com/widgets/sua-url-aqui.html';
-      mediaUrlInput.required = true;
+      mediaUrlInput.required = true; // Instagram embed requires widget link
+      mediaFileGroup.style.display = 'none';
+      mediaFileInput.value = '';
     }
   });
+
+  // Trigger initial change event to align fields
+  mediaTypeSelect.dispatchEvent(new Event('change'));
 });
 
 // Fetch player status
@@ -158,7 +172,6 @@ function renderActiveMedia() {
 
   activeMediaTitle.textContent = currentActiveMedia.name;
   
-  // Update badge types mapping
   const typesMap = {
     image: 'Imagem',
     video: 'Vídeo',
@@ -218,7 +231,6 @@ function renderLibrary() {
       previewContent = `<span class="preview-icon">📸</span>`;
     }
 
-    // Map labels in Portuguese for tags
     const typeLabel = {
       image: 'Imagem',
       video: 'Vídeo',
@@ -344,34 +356,81 @@ function handleAddMedia(e) {
   const name = document.getElementById('media-name').value;
   const type = document.getElementById('media-type').value;
   let url = document.getElementById('media-url').value;
+  const file = mediaFileInput.files[0];
+
+  const submitButton = addMediaForm.querySelector('button[type="submit"]');
+  const originalButtonText = submitButton.textContent;
+
+  // Validation: Check that the user has supplied either a file or a URL (or coordinates for weather)
+  if (type !== 'weather' && !url && !file) {
+    alert("Por favor, insira uma URL ou selecione um arquivo local para fazer o envio.");
+    return;
+  }
 
   // Set default coordinates if adding weather widget and coordinates are left blank
   if (type === 'weather' && !url) {
-    url = '-8.5307,-36.4357'; // Default coords for Palmeira PE
+    url = '-22.9068,-43.1729'; // Default coords for Centro, Rio de Janeiro
   }
 
+  submitButton.disabled = true;
+  submitButton.textContent = "Carregando mídia...";
+
+  // Check if a local file was selected to perform upload
+  if (file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Falha no upload do arquivo');
+        return res.json();
+      })
+      .then(data => {
+        // Use returned local path as media URL
+        saveMediaMetadata(name, type, data.url, submitButton, originalButtonText);
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Erro ao fazer upload do arquivo. Tente novamente.');
+        submitButton.disabled = false;
+        submitButton.textContent = originalButtonText;
+      });
+  } else {
+    // Normal link-based save
+    saveMediaMetadata(name, type, url, submitButton, originalButtonText);
+  }
+}
+
+// Saves media metadata to database
+function saveMediaMetadata(name, type, url, submitButton, originalButtonText) {
   fetch('/api/media', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, type, url })
   })
     .then(res => {
-      if (!res.ok) throw new Error('Failed to save media');
+      if (!res.ok) throw new Error('Failed to save media metadata');
       return res.json();
     })
     .then(() => {
       addMediaForm.reset();
       
-      // Reset label and placeholders to default 'image' style
+      // Reset labels and fields to default 'image' style
       mediaUrlLabel.textContent = 'URL Pública da Imagem';
       mediaUrlInput.placeholder = 'https://exemplo.com/imagem.jpg';
-      mediaUrlInput.required = true;
       
       fetchLibrary();
     })
     .catch(err => {
       console.error(err);
       alert('Erro ao cadastrar mídia. Verifique os dados.');
+    })
+    .finally(() => {
+      submitButton.disabled = false;
+      submitButton.textContent = originalButtonText;
     });
 }
 

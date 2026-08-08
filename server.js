@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,6 +10,24 @@ const DB_PATH = path.join(__dirname, 'db.json');
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Configure Multer for local uploads
+const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+  }
+});
+const upload = multer({ storage: storage });
 
 // Initial database state
 const defaultDb = {
@@ -32,16 +51,28 @@ const defaultDb = {
       url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
     },
     {
-      id: "widget-weather",
-      name: "Clima - Palmeira, PE",
+      id: "widget-weather-centro",
+      name: "Clima - Centro RJ",
       type: "weather",
-      url: "-8.5307,-36.4357"
+      url: "-22.9068,-43.1729"
     },
     {
-      id: "widget-news",
-      name: "Notícias de Esporte (GE)",
+      id: "widget-weather-copacabana",
+      name: "Clima - Copacabana RJ",
+      type: "weather",
+      url: "-22.9698,-43.1864"
+    },
+    {
+      id: "widget-weather-barra",
+      name: "Clima - Barra RJ",
+      type: "weather",
+      url: "-22.9997,-43.3602"
+    },
+    {
+      id: "widget-news-rj",
+      name: "G1 Notícias - Rio de Janeiro",
       type: "news",
-      url: "https://ge.globo.com/servico/sem-patrocinio/rss/cogumelo/rss2.xml"
+      url: "https://g1.globo.com/dinamico/recipiente/g1/rio-de-janeiro/rss2.xml"
     },
     {
       id: "widget-instagram",
@@ -211,6 +242,16 @@ app.get('/api/current-media', (req, res) => {
   }
 
   res.json(db.currentMedia || null);
+});
+
+// API: File Upload Endpoint
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "Nenhum arquivo enviado" });
+  }
+  // Return relative URL for static loading
+  const fileUrl = `/uploads/${req.file.filename}`;
+  res.json({ url: fileUrl });
 });
 
 // API: Select media to display on the player
