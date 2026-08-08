@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,6 +30,24 @@ const defaultDb = {
       name: "Vídeo Loop (Big Buck Bunny)",
       type: "video",
       url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+    },
+    {
+      id: "widget-weather",
+      name: "Clima - Palmeira, PE",
+      type: "weather",
+      url: "-8.5307,-36.4357"
+    },
+    {
+      id: "widget-news",
+      name: "Notícias de Esporte (GE)",
+      type: "news",
+      url: "https://ge.globo.com/servico/sem-patrocinio/rss/cogumelo/rss2.xml"
+    },
+    {
+      id: "widget-instagram",
+      name: "Instagram Embed",
+      type: "instagram",
+      url: "https://lightwidget.com/widgets/placeholder.html"
     }
   ],
   currentMedia: {
@@ -48,6 +67,40 @@ const defaultDb = {
   }
 };
 
+// Custom RSS Regex Parser (Zero external dependency)
+function parseRss(xml) {
+  const items = [];
+  // Match each <item> block
+  const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
+  
+  for (const itemXml of itemMatches) {
+    // Extract title (handles CDATA and plain text)
+    const titleMatch = itemXml.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || itemXml.match(/<title>([\s\S]*?)<\/title>/);
+    const linkMatch = itemXml.match(/<link>([\s\S]*?)<\/link>/);
+    const descMatch = itemXml.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) || itemXml.match(/<description>([\s\S]*?)<\/description>/);
+    
+    // Attempt to extract image URL (media:content, media:thumbnail, or img tag inside description)
+    let imageUrl = '';
+    const mediaMatch = itemXml.match(/<media:content[^>]*url="([^"]+)"/) || itemXml.match(/<media:thumbnail[^>]*url="([^"]+)"/);
+    if (mediaMatch) {
+      imageUrl = mediaMatch[1];
+    } else if (descMatch) {
+      const imgInDesc = descMatch[1].match(/<img[^>]*src="([^"]+)"/);
+      if (imgInDesc) imageUrl = imgInDesc[1];
+    }
+    
+    if (titleMatch && linkMatch) {
+      items.push({
+        title: titleMatch[1].trim(),
+        link: linkMatch[1].trim(),
+        description: descMatch ? descMatch[1].replace(/<[^>]*>/g, '').trim().substring(0, 150) + '...' : '',
+        imageUrl: imageUrl
+      });
+    }
+  }
+  return items.slice(0, 8); // top 8 articles
+}
+
 // Helper to read database
 function readDb() {
   try {
@@ -56,7 +109,24 @@ function readDb() {
       return defaultDb;
     }
     const data = fs.readFileSync(DB_PATH, 'utf8');
-    return JSON.parse(data);
+    const db = JSON.parse(data);
+    
+    // Auto-migrate: check if default widgets or items are missing and add them
+    let migrated = false;
+    defaultDb.mediaList.forEach(defaultItem => {
+      const exists = db.mediaList.some(item => item.id === defaultItem.id);
+      if (!exists) {
+        db.mediaList.push(defaultItem);
+        migrated = true;
+      }
+    });
+    
+    if (migrated) {
+      console.log("Database migrated: added missing default widget options.");
+      writeDb(db);
+    }
+    
+    return db;
   } catch (err) {
     console.error("Error reading database file. Reverting to default:", err);
     return defaultDb;
@@ -229,6 +299,49 @@ app.post('/api/playlist/stop', (req, res) => {
 app.get('/api/playlist/status', (req, res) => {
   const db = readDb();
   res.json(db.playlist || { isActive: false, items: [], imageDuration: 10 });
+});
+
+// API: Weather forecast proxy (Open-Meteo)
+app.get('/api/widgets/weather', (req, res) => {
+  const lat = req.query.lat || '-8.5307';
+  const lon = req.query.lon || '-36.4357';
+  
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=America/Sao_Paulo`;
+  
+  https.get(weatherUrl, (apiRes) => {
+    let data = '';
+    apiRes.on('data', chunk => data += chunk);
+    apiRes.on('end', () => {
+      try {
+        const json = JSON.parse(data);
+        res.json(json);
+      } catch (e) {
+        res.status(500).json({ error: "Failed to parse weather data" });
+      }
+    });
+  }).on('error', (err) => {
+    res.status(500).json({ error: "Failed to fetch weather: " + err.message });
+  });
+});
+
+// API: Sports RSS Feed proxy
+app.get('/api/widgets/news', (req, res) => {
+  const feedUrl = req.query.url || 'https://ge.globo.com/servico/sem-patrocinio/rss/cogumelo/rss2.xml';
+  
+  https.get(feedUrl, (apiRes) => {
+    let data = '';
+    apiRes.on('data', chunk => data += chunk);
+    apiRes.on('end', () => {
+      try {
+        const parsedNews = parseRss(data);
+        res.json(parsedNews);
+      } catch (e) {
+        res.status(500).json({ error: "Failed to parse RSS feed data" });
+      }
+    });
+  }).on('error', (err) => {
+    res.status(500).json({ error: "Failed to fetch RSS: " + err.message });
+  });
 });
 
 // API: Check player status (Online if heartbeat received in last 20 seconds)

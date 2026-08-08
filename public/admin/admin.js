@@ -22,6 +22,11 @@ const btnStartPlaylist = document.getElementById('btn-start-playlist');
 const btnStopPlaylist = document.getElementById('btn-stop-playlist');
 const playlistStatusMsg = document.getElementById('playlist-status-msg');
 
+// New configuration elements for UI polish
+const mediaTypeSelect = document.getElementById('media-type');
+const mediaUrlInput = document.getElementById('media-url');
+const mediaUrlLabel = document.querySelector('label[for="media-url"]');
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   fetchLibrary();
@@ -39,6 +44,32 @@ document.addEventListener('DOMContentLoaded', () => {
   btnDisplayNow.addEventListener('click', handleDisplayNow);
   btnStartPlaylist.addEventListener('click', handleStartPlaylist);
   btnStopPlaylist.addEventListener('click', handleStopPlaylist);
+
+  // Switch labels and placeholders dynamically based on media type selected
+  mediaTypeSelect.addEventListener('change', () => {
+    const val = mediaTypeSelect.value;
+    if (val === 'image') {
+      mediaUrlLabel.textContent = 'URL Pública da Imagem';
+      mediaUrlInput.placeholder = 'https://exemplo.com/imagem.jpg';
+      mediaUrlInput.required = true;
+    } else if (val === 'video') {
+      mediaUrlLabel.textContent = 'URL Pública do Vídeo (MP4)';
+      mediaUrlInput.placeholder = 'https://exemplo.com/video.mp4';
+      mediaUrlInput.required = true;
+    } else if (val === 'weather') {
+      mediaUrlLabel.textContent = 'Coordenadas (Lat,Lon) - Opcional';
+      mediaUrlInput.placeholder = 'Ex: -8.5307,-36.4357 (Vazio para Palmeira, PE)';
+      mediaUrlInput.required = false;
+    } else if (val === 'news') {
+      mediaUrlLabel.textContent = 'URL do Feed RSS de Esporte';
+      mediaUrlInput.placeholder = 'Ex: https://ge.globo.com/servico/sem-patrocinio/rss/cogumelo/rss2.xml';
+      mediaUrlInput.required = true;
+    } else if (val === 'instagram') {
+      mediaUrlLabel.textContent = 'URL do Widget Iframe (LightWidget)';
+      mediaUrlInput.placeholder = 'Ex: https://lightwidget.com/widgets/sua-url-aqui.html';
+      mediaUrlInput.required = true;
+    }
+  });
 });
 
 // Fetch player status
@@ -126,7 +157,16 @@ function renderActiveMedia() {
   }
 
   activeMediaTitle.textContent = currentActiveMedia.name;
-  activeMediaType.textContent = currentActiveMedia.type === 'image' ? 'Imagem' : 'Vídeo';
+  
+  // Update badge types mapping
+  const typesMap = {
+    image: 'Imagem',
+    video: 'Vídeo',
+    weather: 'Clima',
+    news: 'Notícias',
+    instagram: 'Instagram'
+  };
+  activeMediaType.textContent = typesMap[currentActiveMedia.type] || 'Widget';
   activeMediaType.className = 'badge ' + currentActiveMedia.type;
 
   if (currentActiveMedia.type === 'image') {
@@ -137,6 +177,12 @@ function renderActiveMedia() {
         <video src="${currentActiveMedia.url}" muted style="width:100%; height:100%; object-fit:contain;"></video>
         <span style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:32px; background:rgba(0,0,0,0.6); padding:10px; border-radius:50%; line-height:1;">▶</span>
       </div>`;
+  } else if (currentActiveMedia.type === 'weather') {
+    activeMediaPreview.innerHTML = `<div class="preview-icon" style="font-size:40px; opacity:0.8;">☀️ Clima</div>`;
+  } else if (currentActiveMedia.type === 'news') {
+    activeMediaPreview.innerHTML = `<div class="preview-icon" style="font-size:40px; opacity:0.8;">📰 Notícias</div>`;
+  } else if (currentActiveMedia.type === 'instagram') {
+    activeMediaPreview.innerHTML = `<div class="preview-icon" style="font-size:40px; opacity:0.8;">📸 Instagram</div>`;
   }
 }
 
@@ -162,9 +208,24 @@ function renderLibrary() {
     let previewContent = '';
     if (item.type === 'image') {
       previewContent = `<img src="${item.url}" alt="${item.name}">`;
-    } else {
+    } else if (item.type === 'video') {
       previewContent = `<span class="preview-icon">🎬</span>`;
+    } else if (item.type === 'weather') {
+      previewContent = `<span class="preview-icon">☀️</span>`;
+    } else if (item.type === 'news') {
+      previewContent = `<span class="preview-icon">📰</span>`;
+    } else if (item.type === 'instagram') {
+      previewContent = `<span class="preview-icon">📸</span>`;
     }
+
+    // Map labels in Portuguese for tags
+    const typeLabel = {
+      image: 'Imagem',
+      video: 'Vídeo',
+      weather: 'Clima',
+      news: 'Notícias',
+      instagram: 'Instagram'
+    }[item.type] || 'Widget';
 
     card.innerHTML = `
       <div class="playlist-select-wrapper">
@@ -175,7 +236,7 @@ function renderLibrary() {
       <div class="media-item-info">
         <div class="media-title">${item.name}</div>
         <div class="media-item-footer">
-          <span class="type-tag">${item.type === 'image' ? 'Imagem' : 'Vídeo'}</span>
+          <span class="type-tag">${typeLabel}</span>
           <button class="btn-delete" data-id="${item.id}">🗑️</button>
         </div>
       </div>
@@ -282,7 +343,12 @@ function handleAddMedia(e) {
   
   const name = document.getElementById('media-name').value;
   const type = document.getElementById('media-type').value;
-  const url = document.getElementById('media-url').value;
+  let url = document.getElementById('media-url').value;
+
+  // Set default coordinates if adding weather widget and coordinates are left blank
+  if (type === 'weather' && !url) {
+    url = '-8.5307,-36.4357'; // Default coords for Palmeira PE
+  }
 
   fetch('/api/media', {
     method: 'POST',
@@ -295,6 +361,12 @@ function handleAddMedia(e) {
     })
     .then(() => {
       addMediaForm.reset();
+      
+      // Reset label and placeholders to default 'image' style
+      mediaUrlLabel.textContent = 'URL Pública da Imagem';
+      mediaUrlInput.placeholder = 'https://exemplo.com/imagem.jpg';
+      mediaUrlInput.required = true;
+      
       fetchLibrary();
     })
     .catch(err => {

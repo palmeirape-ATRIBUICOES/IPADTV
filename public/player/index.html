@@ -29,6 +29,35 @@
     <!-- Video element (highly compatible configuration) -->
     <video id="signage-video" src="" loop muted playsinline autoplay style="display: none;"></video>
     
+    <!-- Weather Widget -->
+    <div id="weather-widget" class="widget-container" style="display: none;">
+      <div class="weather-box">
+        <h2 id="weather-city">Previsão do Tempo</h2>
+        <div class="weather-main">
+          <span id="weather-icon" class="weather-large-icon">☀️</span>
+          <span id="weather-temp" class="weather-temp">--°C</span>
+        </div>
+        <p id="weather-desc" class="weather-desc">Carregando clima...</p>
+        <div id="weather-forecast" class="weather-forecast-row"></div>
+      </div>
+    </div>
+
+    <!-- News Widget -->
+    <div id="news-widget" class="widget-container" style="display: none;">
+      <div id="news-bg" class="news-background"></div>
+      <div class="news-overlay"></div>
+      <div class="news-content-box">
+        <span class="news-badge">ESPORTE MUNDIAL</span>
+        <h1 id="news-title">Buscando as últimas notícias...</h1>
+        <p id="news-desc">Carregando feed de notícias esportivas...</p>
+      </div>
+    </div>
+
+    <!-- Instagram Widget -->
+    <div id="instagram-widget" class="widget-container" style="display: none;">
+      <iframe id="instagram-iframe" src="" style="width: 100%; height: 100%; border: none; overflow: hidden; background: #000;" scrolling="no"></iframe>
+    </div>
+    
     <!-- Autoplay Fallback Overlay -->
     <div id="play-overlay" class="overlay" style="display: none;">
       <div class="overlay-button">
