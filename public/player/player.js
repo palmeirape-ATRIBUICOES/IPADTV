@@ -110,6 +110,12 @@
 
       // Show video
       videoEl.style.display = 'block';
+      
+      // Explicitly set properties to bypass iOS autoplay restrictions on source change
+      videoEl.muted = true;
+      videoEl.defaultMuted = true;
+      videoEl.playsInline = true;
+      
       videoEl.src = currentMediaUrl;
       videoEl.load();
 
