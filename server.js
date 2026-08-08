@@ -38,7 +38,14 @@ const defaultDb = {
     url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1000",
     version: 1
   },
-  lastHeartbeat: null
+  lastHeartbeat: null,
+  playlist: {
+    isActive: false,
+    items: [],
+    imageDuration: 10,
+    currentIndex: 0,
+    lastSwitchTime: 0
+  }
 };
 
 // Helper to read database
@@ -110,6 +117,29 @@ app.delete('/api/media/:id', (req, res) => {
 // API: Get currently active media
 app.get('/api/current-media', (req, res) => {
   const db = readDb();
+  
+  // Auto-advance playlist if active
+  if (db.playlist && db.playlist.isActive && db.playlist.items.length > 0) {
+    const now = Date.now();
+    const durationMs = (db.playlist.imageDuration || 10) * 1000;
+    const elapsed = now - db.playlist.lastSwitchTime;
+    
+    if (elapsed >= durationMs) {
+      const steps = Math.floor(elapsed / durationMs);
+      db.playlist.currentIndex = (db.playlist.currentIndex + steps) % db.playlist.items.length;
+      db.playlist.lastSwitchTime = now - (elapsed % durationMs);
+      
+      const nextMedia = db.playlist.items[db.playlist.currentIndex];
+      const currentVersion = (db.currentMedia && db.currentMedia.version) || 0;
+      
+      db.currentMedia = {
+        ...nextMedia,
+        version: currentVersion + 1
+      };
+      writeDb(db);
+    }
+  }
+
   res.json(db.currentMedia || null);
 });
 
@@ -124,6 +154,11 @@ app.post('/api/select-media', (req, res) => {
   const selected = db.mediaList.find(item => item.id === id);
   if (!selected) {
     return res.status(404).json({ error: "Media not found in library" });
+  }
+
+  // Deactivate playlist on manual selection
+  if (db.playlist) {
+    db.playlist.isActive = false;
   }
 
   const currentVersion = (db.currentMedia && db.currentMedia.version) || 0;
@@ -143,6 +178,57 @@ app.post('/api/heartbeat', (req, res) => {
   db.lastHeartbeat = Date.now();
   writeDb(db);
   res.json({ success: true, timestamp: db.lastHeartbeat });
+});
+
+// API: Start Playlist Autoplay
+app.post('/api/playlist/start', (req, res) => {
+  const { ids, duration } = req.body;
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "Missing or invalid media IDs array" });
+  }
+
+  const db = readDb();
+  const playlistItems = db.mediaList.filter(item => ids.includes(item.id));
+  if (playlistItems.length === 0) {
+    return res.status(400).json({ error: "None of the selected media items exist in the library" });
+  }
+
+  const imageDuration = parseInt(duration) || 10;
+  const now = Date.now();
+
+  db.playlist = {
+    isActive: true,
+    items: playlistItems,
+    imageDuration,
+    currentIndex: 0,
+    lastSwitchTime: now
+  };
+
+  // Instantly transition to the first item in the playlist
+  const currentVersion = (db.currentMedia && db.currentMedia.version) || 0;
+  db.currentMedia = {
+    ...playlistItems[0],
+    version: currentVersion + 1
+  };
+  writeDb(db);
+
+  res.json({ success: true, playlist: db.playlist, currentMedia: db.currentMedia });
+});
+
+// API: Stop Playlist Autoplay
+app.post('/api/playlist/stop', (req, res) => {
+  const db = readDb();
+  if (db.playlist) {
+    db.playlist.isActive = false;
+  }
+  writeDb(db);
+  res.json({ success: true, playlist: db.playlist });
+});
+
+// API: Get current Playlist status
+app.get('/api/playlist/status', (req, res) => {
+  const db = readDb();
+  res.json(db.playlist || { isActive: false, items: [], imageDuration: 10 });
 });
 
 // API: Check player status (Online if heartbeat received in last 20 seconds)

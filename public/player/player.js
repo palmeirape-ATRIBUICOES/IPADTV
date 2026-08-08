@@ -6,6 +6,7 @@
   var videoEl = document.getElementById('signage-video');
   var overlayEl = document.getElementById('play-overlay');
   var debugBoxEl = document.getElementById('debug-box');
+  var sleepPreventerEl = document.getElementById('sleep-preventer');
   
   // Debug fields
   var debugSyncEl = document.getElementById('debug-sync');
@@ -18,11 +19,19 @@
   var currentMediaVersion = null;
   var currentMediaUrl = null;
   var currentMediaType = null;
+  var previousMediaType = null;
   var debugMode = false;
   var hasUserInteracted = false;
 
+  // Base64 1-second blank loop video (exemption source to prevent iOS device sleeping)
+  var sleepLockVideoBase64 = "data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDJpc29tYXZjMQAAAzFtb292AAAAbG12aGQAAAAA3ndM1d53TNUAAV+QAAH0gAABAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACdXRyYWsAAABcdGtoZAAAAAPed0zV3ndM1QAAAAEAAAAAAAH0gAAAAAAAAAAAAAAAAAEAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAABtZGlhAAAAWG1kaGQAAAAA3ndM1d53TNUAAV+QAAH0gEF1eGgAAAAAc21oZAAAAAAAAAAAAAAAJGRpbmYAAAAcZHJlZgAAAAAAAAABAAAANGF1dGgAAAAAAAAACnVybCAAAAABAAABbW1pbmYAAABYdm1oZAAAAAAAAAAAAAAAJGRpbmYAAAAcZHJlZgAAAAAAAAABAAAANGF1dGgAAAAAAAAACnVybCAAAAABAAABXc3RibAAAAGRzdHNkAAAAAAAAAAEAAABUYXZjMQAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAQABgASAAAAEgAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABjC//8AAAA2YXZjQ0BlQED/2QAWY0BAcED54AAsCIAAADhAAAUdggCEhISAgP/gAAAAGWhlbHAAAAAAAGd1dGgAAAAAZWxmYQAAAAAAdHN0dHMAAAAAAAAAAQAAAAEAAAH0AAAAFHN0c3MAAAAAAAAAAQAAAAEAAAAUc3RzeQAAAAAAAAABAAAAAQAAADRzdHNjAAAAAAAAAAEAAAABAAAAAQAAAAEAAAAcc3RzeiAAAAAAAAAAAAAAAQAAAfQAAAAUc3RjbwAAAAAAAAABAAAAMAAAAGV1ZHRhAAAAXW1ldGEAAAAAAAAAIWhkcm4AAAAAAAAAAElkM3Jhd3BkYXRhAAAAADU5aWRjMwAAAABhbHRyAAAAAGJwaWN0AAAAAGJ0eXBlAAAAAGNuYW1lAAAAAGNkYXRhAAAAAA==";
+
   // Initialize
   function init() {
+    // Add default CSS transition class to active elements
+    imageEl.className = 'fade-element';
+    videoEl.className = 'fade-element';
+
     // Check if ?debug=1 is in URL
     var params = new URLSearchParams(window.location.search);
     if (params.get('debug') === '1') {
@@ -30,7 +39,7 @@
       debugBoxEl.style.display = 'block';
     }
 
-    // Set up user interaction listener on overlay click
+    // Set up user interaction listener
     overlayEl.addEventListener('click', handleOverlayClick);
 
     // Initial heartbeat and media check
@@ -64,6 +73,7 @@
         if (media.id !== currentMediaId || media.version !== currentMediaVersion) {
           console.log("NEW MEDIA DETECTED", media);
           
+          previousMediaType = currentMediaType;
           currentMediaId = media.id;
           currentMediaVersion = media.version;
           currentMediaUrl = media.url;
@@ -81,63 +91,92 @@
       });
   }
 
+  // Perform smooth crossfade transitions between slides
+  function transitionMedia(updateFn) {
+    var activeEl = null;
+    if (previousMediaType === 'image') activeEl = imageEl;
+    else if (previousMediaType === 'video') activeEl = videoEl;
+
+    // If there is an active element already showing, fade it out first
+    if (activeEl && activeEl.style.display !== 'none') {
+      activeEl.classList.add('fade-out');
+      
+      setTimeout(function() {
+        // Swap sources & displays
+        updateFn();
+        
+        // Prepare new element as transparent first, then fade it in
+        var newEl = currentMediaType === 'image' ? imageEl : videoEl;
+        newEl.classList.add('fade-out');
+        newEl.offsetHeight; // trigger reflow
+        newEl.classList.remove('fade-out');
+      }, 500); // match transition duration in CSS
+    } else {
+      // Direct load if no previous active media
+      updateFn();
+      var newEl = currentMediaType === 'image' ? imageEl : videoEl;
+      newEl.classList.remove('fade-out');
+    }
+  }
+
   // Update display based on current media state
   function updateDisplay() {
-    if (currentMediaType === 'image') {
-      // Hide video
-      videoEl.style.display = 'none';
-      videoEl.pause();
-      videoEl.src = '';
+    transitionMedia(function() {
+      if (currentMediaType === 'image') {
+        // Hide video
+        videoEl.style.display = 'none';
+        videoEl.pause();
+        videoEl.src = '';
 
-      // Show image
-      imageEl.style.display = 'block';
-      imageEl.src = currentMediaUrl;
-      
-      imageEl.onload = function() {
-        console.log("IMAGE LOADED");
-      };
-      imageEl.onerror = function() {
-        console.error("IMAGE PLAY ERROR / LOAD FAILED");
-      };
+        // Show image
+        imageEl.style.display = 'block';
+        imageEl.src = currentMediaUrl;
+        
+        imageEl.onload = function() {
+          console.log("IMAGE LOADED");
+        };
+        imageEl.onerror = function() {
+          console.error("IMAGE PLAY ERROR / LOAD FAILED");
+        };
 
-      // Hide autoplay overlay if we were showing it
-      overlayEl.style.display = 'none';
+        // Hide autoplay overlay if it was showing
+        overlayEl.style.display = 'none';
 
-    } else if (currentMediaType === 'video') {
-      // Hide image
-      imageEl.style.display = 'none';
-      imageEl.src = '';
+      } else if (currentMediaType === 'video') {
+        // Hide image
+        imageEl.style.display = 'none';
+        imageEl.src = '';
 
-      // Show video
-      videoEl.style.display = 'block';
-      
-      // Explicitly set properties to bypass iOS autoplay restrictions on source change
-      videoEl.muted = true;
-      videoEl.defaultMuted = true;
-      videoEl.playsInline = true;
-      
-      videoEl.src = currentMediaUrl;
-      videoEl.load();
+        // Show video
+        videoEl.style.display = 'block';
+        
+        // Enforce properties to bypass iOS Safari autoplay guidelines on source changes
+        videoEl.muted = true;
+        videoEl.defaultMuted = true;
+        videoEl.playsInline = true;
+        
+        videoEl.src = currentMediaUrl;
+        videoEl.load();
 
-      // Trigger play
-      var playPromise = videoEl.play();
+        // Trigger play
+        var playPromise = videoEl.play();
 
-      if (playPromise !== undefined) {
-        playPromise.then(function() {
-          console.log("VIDEO LOADED");
-          overlayEl.style.display = 'none';
-        }).catch(function(error) {
-          console.warn("VIDEO PLAY ERROR (Autoplay blocked)", error);
-          // Show overlay to get user interaction
-          if (!hasUserInteracted) {
-            overlayEl.style.display = 'flex';
-          }
-        });
-      } else {
-        // Fallback for older browsers that don't return promise on play()
-        console.log("Autoplay check skipped (No promise returned)");
+        if (playPromise !== undefined) {
+          playPromise.then(function() {
+            console.log("VIDEO LOADED");
+            overlayEl.style.display = 'none';
+          }).catch(function(error) {
+            console.warn("VIDEO PLAY ERROR (Autoplay blocked)", error);
+            // Show overlay to get user interaction
+            if (!hasUserInteracted) {
+              overlayEl.style.display = 'flex';
+            }
+          });
+        } else {
+          console.log("Autoplay check skipped (No promise returned)");
+        }
       }
-    }
+    });
   }
 
   // Clear canvas
@@ -152,12 +191,24 @@
     currentMediaVersion = null;
     currentMediaUrl = null;
     currentMediaType = null;
+    previousMediaType = null;
   }
 
-  // Handle overlay click to bypass autoplay restriction
+  // Handle overlay click to bypass autoplay restrictions & wake lock iPad screen
   function handleOverlayClick() {
     hasUserInteracted = true;
     overlayEl.style.display = 'none';
+
+    // Start background sleep preventer video
+    sleepPreventerEl.src = sleepLockVideoBase64;
+    var sleepPromise = sleepPreventerEl.play();
+    if (sleepPromise !== undefined) {
+      sleepPromise.then(function() {
+        console.log("WAKE LOCK ACTIVATED: sleep prevention loop started");
+      }).catch(function(e) {
+        console.warn("WAKE LOCK ERROR: sleep prevention loop blocked", e);
+      });
+    }
     
     if (currentMediaType === 'video') {
       console.log("Resuming playback after user touch event");

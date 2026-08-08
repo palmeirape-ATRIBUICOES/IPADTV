@@ -20,6 +20,9 @@
 </head>
 <body>
   <div id="player-container">
+    <!-- Invisible sleep preventer video to block screen auto-lock (NoSleep simulation) -->
+    <video id="sleep-preventer" loop muted playsinline style="position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none;"></video>
+
     <!-- Image element -->
     <img id="signage-image" src="" alt="Sinalização Digital" style="display: none;">
     

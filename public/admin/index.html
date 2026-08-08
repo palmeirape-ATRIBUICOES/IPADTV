@@ -36,6 +36,24 @@
         </div>
       </section>
 
+      <!-- Section: Playlist Control -->
+      <section class="card playlist-control-card">
+        <h2>Controle de Playlist</h2>
+        <div class="playlist-settings-box">
+          <div class="playlist-row">
+            <div class="form-group inline-group">
+              <label for="playlist-duration">Tempo de Exibição (s)</label>
+              <input type="number" id="playlist-duration" value="10" min="2" max="600">
+            </div>
+            <div class="playlist-action-buttons">
+              <button id="btn-start-playlist" class="btn btn-primary" disabled>Iniciar Playlist</button>
+              <button id="btn-stop-playlist" class="btn btn-danger-outline" style="display: none;">Parar Playlist</button>
+            </div>
+          </div>
+          <div id="playlist-status-msg" class="playlist-status-text">Playlist inativa</div>
+        </div>
+      </section>
+
       <!-- Section: Add New Media -->
       <section class="card form-card">
         <h2>Cadastrar Nova Mídia</h2>
